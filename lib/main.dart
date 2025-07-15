@@ -1,107 +1,71 @@
-import 'package:docs_clone_flutter/models/error_model.dart';
-import 'package:docs_clone_flutter/repository/auth_repository.dart';
-import 'package:docs_clone_flutter/screens/login_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
-class MyApp extends ConsumerStatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
-
-  @override
-  ConsumerState<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends ConsumerState<MyApp> {
-  ErrorModel? errorModel;
-
-  @override
-  void initState() {
-    super.initState();
-    getUserData();
-  }
-
-  void getUserData() async {
-    errorModel = await ref.read(authRepositoryProvider).getUserData();
-
-    if (errorModel != null && errorModel!.data != null) {
-      ref.read(userProvider.notifier).update((state) => errorModel!.data);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Google Docs Clone',
-      debugShowCheckedModeBanner: false,
+      title: 'Docs App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: ref.watch(userProvider) != null ? const HomeScreen() : const LoginScreen(),
+      home: const MyHomePage(title: 'Flutter Docs App'),
     );
   }
 }
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({Key? key, required this.title}) : super(key: key);
 
-  void signOut(WidgetRef ref) {
-    ref.read(authRepositoryProvider).signOut();
-    ref.read(userProvider.notifier).update((state) => null);
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  int _counter = 0;
+
+  void _incrementCounter() {
+    setState(() {
+      _counter++;
+    });
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProvider)!;
-    
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Google Docs Clone'),
-        actions: [
-          IconButton(
-            onPressed: () => signOut(ref),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
+        title: Text(widget.title),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              backgroundImage: NetworkImage(user.profilePic),
-              radius: 50,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Welcome, ${user.name}!',
-              style: const TextStyle(fontSize: 24),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              user.email,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 40),
+          children: <Widget>[
             const Text(
-              'Authentication successful!',
-              style: TextStyle(fontSize: 18, color: Colors.green),
+              'Welcome to Docs App!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             const Text(
-              'The document editing functionality has been simplified for this demo.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
+              'You have pushed the button this many times:',
+            ),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
       ),
     );
   }

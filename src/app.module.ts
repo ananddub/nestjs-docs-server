@@ -4,10 +4,12 @@ import { SocketModule } from './socket/socket.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
+import 'dotenv/config';
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost:27017/your_database_name'),
+    MongooseModule.forRoot(
+      process.env.MONGODB_URI || 'mongodb://localhost:27017/your_database_name',
+    ),
     SocketModule,
 
     AuthModule,

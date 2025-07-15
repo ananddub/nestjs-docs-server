@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import 'dotenv/config';
 import { Redis } from 'ioredis';
 
 @Injectable()
@@ -7,14 +8,18 @@ export class RedisCacheService implements OnModuleInit {
   private readonly logger = new Logger(RedisCacheService.name);
 
   constructor() {
+    const obj = {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+    };
     this.redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
-        this.logger.warn(`Redis connection retry in ${delay}ms...`);
+        this.logger.warn(`Redis connection  retry in ${delay}ms...`, obj);
         return delay;
-      }
+      },
     });
   }
 
@@ -22,11 +27,11 @@ export class RedisCacheService implements OnModuleInit {
     this.redisClient.on('error', (err) => {
       this.logger.error('Redis client error:', err);
     });
-    
+
     this.redisClient.on('connect', () => {
       this.logger.log('Redis client connected successfully');
     });
-    
+
     this.redisClient.on('reconnecting', () => {
       this.logger.warn('Redis client reconnecting...');
     });
@@ -40,8 +45,9 @@ export class RedisCacheService implements OnModuleInit {
    */
   async set(key: string, value: any, ttl?: number): Promise<void> {
     try {
-      const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      
+      const stringValue =
+        typeof value === 'object' ? JSON.stringify(value) : String(value);
+
       if (ttl) {
         await this.redisClient.set(key, stringValue, 'EX', ttl);
       } else {
@@ -62,14 +68,14 @@ export class RedisCacheService implements OnModuleInit {
   async get(key: string, parseJson = true): Promise<any> {
     try {
       const value = await this.redisClient.get(key);
-      
+
       if (!value) {
         this.logger.debug(`Cache miss: ${key}`);
         return null;
       }
-      
+
       this.logger.debug(`Cache hit: ${key}`);
-      
+
       if (parseJson) {
         try {
           return JSON.parse(value);
@@ -77,7 +83,7 @@ export class RedisCacheService implements OnModuleInit {
           return value;
         }
       }
-      
+
       return value;
     } catch (error) {
       this.logger.error(`Error getting cache for key ${key}:`, error);

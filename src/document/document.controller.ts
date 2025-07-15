@@ -11,40 +11,44 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DocumentService } from './document.service';
 import { GetUser } from '../auth/get-user.decorator';
+import { DocumentModel } from './document.model';
 
-@Controller('documents')
-@UseGuards(JwtAuthGuard)
+@Controller('doc')
 export class DocumentController {
   constructor(private documentService: DocumentService) {}
 
-  @Post()
+  @Post('create')
+  @UseGuards(JwtAuthGuard)
   createDocument(
     @GetUser('id') userId: string,
     @Body('title') title?: string,
-  ): Promise<Document> {
+  ): Promise<DocumentModel> {
     return this.documentService.createDocument(userId, title);
   }
 
   @Get(':id')
-  getDocument(@Param('id') id: string): Promise<Document> {
+  getDocument(@Param('id') id: string): Promise<DocumentModel> {
     return this.documentService.getDocument(id);
   }
 
   @Get()
-  getUserDocuments(@GetUser('id') userId: string): Promise<Document[]> {
+  @UseGuards(JwtAuthGuard)
+  getUserDocuments(@GetUser('id') userId: string): Promise<DocumentModel[]> {
     return this.documentService.getUserDocuments(userId);
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard)
   updateDocument(
     @Param('id') id: string,
     @GetUser('id') userId: string,
     @Body() updates: { title?: string; content?: string },
-  ): Promise<Document> {
+  ): Promise<DocumentModel> {
     return this.documentService.updateDocument(id, userId, updates);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   deleteDocument(
     @Param('id') id: string,
     @GetUser('id') userId: string,

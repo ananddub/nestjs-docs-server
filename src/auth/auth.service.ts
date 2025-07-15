@@ -23,11 +23,12 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user._id };
+    console.log(user);
     return {
       access_token: this.jwtService.sign(payload),
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         name: user.name,
         profilePic: user.profilePic,
@@ -45,18 +46,18 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(userData.password, 10);
     const newUser = new this.userModel({
-      id: uuidv4(),
       ...userData,
       password: hashedPassword,
     });
 
     const savedUser = await newUser.save();
     const { password, ...result } = savedUser.toObject();
-    return result;
+
+    return this.login(result);
   }
 
   async findById(id: string): Promise<User> {
-    return this.userModel.findOne({ id }).exec();
+    return this.userModel.findOne({ _id: id }).exec();
   }
 
   async findByEmail(email: string): Promise<User> {

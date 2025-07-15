@@ -1,25 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import 'dotenv/config';
 import { AppModule } from './app.module';
-import { RedisIoAdapter } from './socket/socket.adapter';
-import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // CORS configuration
-  const corsOptions: CorsOptions = {
-    origin: true, // Allow all origins
-    methods: ['GET', 'POST'],
-    credentials: true,
-  };
-  app.enableCors(corsOptions);
-
-  // Redis WebSocket Adapter
-  const redisIoAdapter = new RedisIoAdapter(app);
-  await redisIoAdapter.connectToRedis();
-  app.useWebSocketAdapter(redisIoAdapter);
-
+  app.enableCors({
+    origin: '*', // ya '*' development ke liye
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // agar cookies ya auth headers use kare toh
+  });
+  app.useWebSocketAdapter(new IoAdapter(app));
+  app.useGlobalPipes(new ValidationPipe());
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`Application is running on: ${await app.getUrl()}`);

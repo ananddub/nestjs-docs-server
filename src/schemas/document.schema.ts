@@ -7,13 +7,10 @@ export type DocumentModelDocument = DocumentModel & MongoDocument;
 
 @Schema({ timestamps: true })
 export class DocumentModel {
-  @Prop({ required: true })
-  id: string;
-
   @Prop({ default: 'Untitled Document' })
   title: string;
 
-  @Prop({ type: mongoose.Schema.Types.Mixed, default: {} })
+  @Prop({ type: mongoose.Schema.Types.Mixed, default: [{ insert: '\n' }] })
   content: any;
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })

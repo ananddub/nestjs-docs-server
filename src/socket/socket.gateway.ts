@@ -35,7 +35,9 @@ export class SocketGateway
 {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(SocketGateway.name);
-
+  private liveuser = new Map<string, Set<string>>();
+  private user = new Map<string, string>();
+  private debounceMap: Map<string, NodeJS.Timeout> = new Map();
   constructor(
     private documentService: DocumentService,
     private readonly cacheService: RedisCacheService,
@@ -52,21 +54,22 @@ export class SocketGateway
 
   async handleConnection(@ConnectedSocket() client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
-
-    // You can authenticate the client here if needed
-    // const token = client.handshake.auth.token || client.handshake.headers.authorization;
-    // if (token) {
-    //   try {
-    //     const payload = this.jwtService.verify(token);
-    //     client.data.user = payload;
-    //   } catch (e) {
-    //     client.disconnect();
-    //     return;
-    //   }
-    // }
   }
 
-  handleDisconnect(@ConnectedSocket() client: Socket) {
+  async handleDisconnect(@ConnectedSocket() client: Socket) {
+    const room: any = this.user.has(client.id);
+    const set = this.liveuser.get(room);
+    if (set) {
+      set.delete(client.id);
+      this.user.delete(client.id);
+      this.server.emit(`changes:${room}`, {
+        room,
+        title: await this.documentService.getDocument(room),
+        total: set.size,
+        content: [],
+        delta: [],
+      });
+    }
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
@@ -114,27 +117,54 @@ export class SocketGateway
     }
   }
 
+  async saveData(room: string, title: string, content: any) {
+    await this.documentModel.findByIdAndUpdate(room, {
+      content,
+      title,
+    });
+  }
+
   @SubscribeMessage('typing')
   async handleUpdateDocument(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { room: string; content: any; delta: any },
+    @MessageBody()
+    data: {
+      room: string;
+      title: string;
+      total: number;
+      content: any;
+      delta: any;
+    },
   ) {
     try {
-      // this.logger.log(
-      //   `Received typing event from ${client.id} for document ${data}`,
-      // );
       console.log(data);
-      // Broadcast changes to all clients in the room except sender
-      // this.server.emit('changes', data);
-      client.broadcast.emit('changes', data);
-      // Cache the updated content
-      // await this.cacheService.set(data.documentId, data.content);
-      // Optionally save to database (commented out for performance)
-      // await this.documentService.updateDocument(
-      //   data.documentId,
-      //   undefined,
-      //   data.content,
-      // );
+      try {
+        if (!this.liveuser.has(data.room)) {
+          this.liveuser.set(data.room, new Set(client.id));
+          data.total = 1;
+        } else {
+          const set = this.liveuser.get(data.room);
+          set.add(client.id);
+          data.total = set.size;
+        }
+      } finally {
+        console.log(data);
+        this.user.set(client.id, data.room);
+        client.broadcast.emit(`changes:${data.room}`, data);
+        await this.cacheService.set(data.room, data.content);
+      }
+
+      if (this.debounceMap.has(data.room)) {
+        clearTimeout(this.debounceMap.get(data.room));
+      }
+
+      const timeout = setTimeout(async () => {
+        await this.saveData(data.room, data.title, data.content);
+        this.debounceMap.delete(data.room);
+        this.logger.log(`Document ${data.room} auto-saved`);
+      }, 5);
+
+      this.debounceMap.set(data.room, timeout);
     } catch (error) {
       this.logger.error(`Error in typing handler: ${error.message}`);
       client.emit('error', {
@@ -153,35 +183,21 @@ export class SocketGateway
     client.leave(documentId);
 
     // Notify others that someone left
-    client.to(documentId).emit('user_left', { clientId: client.id });
+    client.emit(`user_left:${client.rooms}`, { clientId: client.id });
   }
 
   @SubscribeMessage('save')
   async handleSaveDocument(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { documentId: string; content: any; userId: string },
+    @MessageBody()
+    data: { room: string; fid: string; delta: any; userId: string },
   ) {
     try {
-      // this.logger.log(`Saving document ${data.documentId}`);
-
-      // Save to database
-      // await this.documentService.updateDocument(data.documentId, data.userId, {
-      //   content: data.content,
-      // });
-
-      // Update cache
-      // await this.cacheService.set(data.documentId, data.content);
-
-      // Confirm save to client
-      client.emit('save_success', { documentId: data.documentId });
-
-      // Notify others
-      client.to(data.documentId).emit('document_saved', {
-        documentId: data.documentId,
+      client.emit(`saved:${data.room}`, {
+        documentId: data.room,
         savedBy: client.id,
       });
     } catch (error) {
-      this.logger.error(`Error saving document: ${error.message}`);
       client.emit('error', {
         message: 'Failed to save document',
         error: error.message,

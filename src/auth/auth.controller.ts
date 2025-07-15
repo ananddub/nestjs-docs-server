@@ -10,7 +10,7 @@ import {
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
-@Controller('auth')
+@Controller('api')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -26,7 +26,7 @@ export class AuthController {
     return this.authService.login(user);
   }
 
-  @Post('register')
+  @Post('signup')
   async register(@Body() registerData: any) {
     return this.authService.register(registerData);
   }
